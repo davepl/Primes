@@ -3,8 +3,8 @@
 // ---------------------------------------------------------------------------
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace PrimeSieveCS
@@ -14,58 +14,59 @@ namespace PrimeSieveCS
         class prime_sieve
         {
             private int sieveSize = 0;
-            private BitArray bitArray;
+            private byte[] rawbits = null;
             private Dictionary<int, int> myDict = new Dictionary<int, int> 
             { 
-                { 10 , 1 },                 // Historical data for validating our results - the number of primes
-                { 100 , 25 },               // to be found under some limit, such as 168 primes under 1000
-                { 1000 , 168 },
-                { 10000 , 1229 },
-                { 100000 , 9592 },
-                { 1000000 , 78498 },
-                { 10000000 , 664579 },
-                { 100000000 , 5761455 } 
+                [10] = 1,                 // Historical data for validating our results - the number of primes
+                [100] = 25,               // to be found under some limit, such as 168 primes under 1000
+                [1000] = 168,
+                [10000] = 1229,
+                [100000] = 9592,
+                [1000000] = 78498,
+                [10000000] = 664579,
+                [100000000] = 5761455,
             };
 
-            public prime_sieve(int size) 
+            public prime_sieve(int n)
             {
-                sieveSize = size;
-                bitArray = new BitArray((int)((this.sieveSize + 1) / 2), true);
+                sieveSize = n;
+                rawbits = new byte[(n / 8) + 1];
+                rawbits.AsSpan().Fill(0xFF);
             }
 
             public int countPrimes()
             {
                 int count = 0;
-                for (int i = 0; i < this.bitArray.Count; i++)
-                    if (bitArray[i])
+                for (int i = 0; i < sieveSize; i++)
+                    if (GetBit((uint)i))
                         count++;
                 return count;
             }
 
-            public bool validateResults()
+            private bool validateResults()
             {
-                if (myDict.ContainsKey(this.sieveSize))
-                    return this.myDict[this.sieveSize] == this.countPrimes();
-                return false;
+                return myDict.TryGetValue(sieveSize, out int sieveResult) && (sieveResult == countPrimes());
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private bool GetBit(int index)
+            private bool GetBit(uint index)
             {
-                if ((index & 1) == 0)
+                if ((index & 1) == 0) // index % 2
                     return false;
-                return bitArray[(int)((uint)index / 2)];
+                index /= 2;
+                return ((rawbits[index / 8]) & (1u << (int)(index % 8))) != 0;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private void ClearBit(int index)
+            private void ClearBit(uint index)
             {
-                if ((index & 1) == 0)
+                if ((index & 1) == 0) // index % 2
                 {
                     Console.WriteLine("You are setting even bits, which is sub-optimal");
                     return;
                 }
-                bitArray[(int)((uint)index / 2)] = false;      
+                index /= 2;
+                rawbits[index / 8] &= (byte)~(1u << (int)(index % 8));
             }
 
             // primeSieve
@@ -75,13 +76,13 @@ namespace PrimeSieveCS
             public void runSieve()
             {
                 int factor = 3;
-                int q = (int) Math.Sqrt(this.sieveSize);
+                int q = (int)Math.Sqrt(sieveSize);
 
                 while (factor < q)
                 {
-                    for (int num = factor; num <= this.sieveSize; num++)
+                    for (int num = factor; num < sieveSize; num++)
                     {
-                        if (GetBit(num))
+                        if (GetBit((uint)num))
                         {
                             factor = num;
                             break;
@@ -91,8 +92,8 @@ namespace PrimeSieveCS
                     // If marking factor 3, you wouldn't mark 6 (it's a mult of 2) so start with the 3rd instance of this factor's multiple.
                     // We can then step by factor * 2 because every second one is going to be even by definition
 
-                    for (int num = factor * 3; num <= this.sieveSize; num += factor * 2)
-                        ClearBit(num);
+                    for (int num = factor * 3; num < sieveSize; num += factor * 2)
+                        ClearBit((uint)num);
 
                     factor += 2;
                 }
@@ -104,37 +105,39 @@ namespace PrimeSieveCS
                     Console.Write("2, ");
 
                 int count = 1;
-                for (int num = 3; num <= this.sieveSize; num++)
+                for (int num = 3; num <= sieveSize; num++)
                 {
-                    if (GetBit(num))
+                    if (GetBit((uint)num))
                     {
                         if (showResults)
                             Console.Write(num + ", ");
                         count++;
                     }
                 }
+
                 if (showResults)
                     Console.WriteLine("");
-                Console.WriteLine("Passes: " + passes + ", Time: " + duration + ", Avg: " + (duration / passes) + ", Limit: " + this.sieveSize + ", Count: " + count + ", Valid: " + validateResults());
+                Console.WriteLine($"Passes: {passes}, Time: {duration}, Avg: {duration / passes}, Limit: {sieveSize}, Count: {count}, Valid: {validateResults()}");
             }
         }
 
         static void Main(string[] args)
         {
-            var tStart = DateTime.UtcNow;
             var passes = 0;
             prime_sieve sieve = null;
 
-            while ((DateTime.UtcNow - tStart).TotalSeconds < 10)
+            var stopwatch = Stopwatch.StartNew();
+
+            while (stopwatch.ElapsedTicks < (10 * TimeSpan.TicksPerSecond))
             {
                 sieve = new prime_sieve(1000000);
                 sieve.runSieve();
                 passes++;
             }
+            stopwatch.Stop();
 
-            var tD = DateTime.UtcNow - tStart;
             if (sieve != null)
-                sieve.printResults(false, tD.TotalSeconds, passes);
+                sieve.printResults(false, stopwatch.Elapsed.TotalSeconds, passes);
         }
     }
 }
