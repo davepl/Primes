@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace PrimeSieveCS
 {
@@ -54,7 +55,7 @@ namespace PrimeSieveCS
                 if ((index & 1) == 0) // index % 2
                     return false;
                 index /= 2;
-                return ((rawbits[index / 8]) & (1u << (int)(index % 8))) != 0;
+                return (getrawbits(index / 8U) & (1u << (int)(index % 8))) != 0;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -66,7 +67,7 @@ namespace PrimeSieveCS
                     return;
                 }
                 index /= 2;
-                rawbits[index / 8] &= (byte)~(1u << (int)(index % 8));
+                getrawbits(index / 8) &= (byte)~(1u << (int)(index % 8));
             }
 
             // primeSieve
@@ -118,6 +119,11 @@ namespace PrimeSieveCS
                 if (showResults)
                     Console.WriteLine("");
                 Console.WriteLine($"Passes: {passes}, Time: {duration}, Avg: {duration / passes}, Limit: {sieveSize}, Count: {count}, Valid: {validateResults()}");
+            }
+
+            private ref byte getrawbits(uint index)
+            {
+                return ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(rawbits), (nint)index);
             }
         }
 
