@@ -12,22 +12,24 @@ namespace PrimeSieveCS
 {
     class PrimeCS
     {
+        private static readonly Dictionary<int, int> myDict = new Dictionary<int, int>
+        {
+            [10] = 1,                 // Historical data for validating our results - the number of primes
+            [100] = 25,               // to be found under some limit, such as 168 primes under 1000
+            [1000] = 168,
+            [10000] = 1229,
+            [100000] = 9592,
+            [1000000] = 78498,
+            [10000000] = 664579,
+            [100000000] = 5761455,
+        };
+
         class prime_sieve
         {
-            private int sieveSize = 0;
-            private byte[] rawbits = null;
-            private Dictionary<int, int> myDict = new Dictionary<int, int> 
-            { 
-                [10] = 1,                 // Historical data for validating our results - the number of primes
-                [100] = 25,               // to be found under some limit, such as 168 primes under 1000
-                [1000] = 168,
-                [10000] = 1229,
-                [100000] = 9592,
-                [1000000] = 78498,
-                [10000000] = 664579,
-                [100000000] = 5761455,
-            };
+            private readonly int sieveSize;
+            private readonly byte[] rawbits;
 
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public prime_sieve(int n)
             {
                 sieveSize = n;
@@ -37,9 +39,12 @@ namespace PrimeSieveCS
 
             public int countPrimes()
             {
+                var sieveSize = this.sieveSize;
+                var rawbits = this.rawbits;
+
                 int count = 0;
                 for (int i = 0; i < sieveSize; i++)
-                    if (GetBit((uint)i))
+                    if (GetBit(rawbits, (uint)i))
                         count++;
                 return count;
             }
@@ -50,16 +55,16 @@ namespace PrimeSieveCS
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private bool GetBit(uint index)
+            private static bool GetBit(byte[] rawbits, uint index)
             {
                 if ((index & 1) == 0) // index % 2
                     return false;
                 index /= 2;
-                return (getrawbits(index / 8U) & (1u << (int)(index % 8))) != 0;
+                return (getrawbits(rawbits, index / 8U) & (1u << (int)(index % 8))) != 0;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private void ClearBit(uint index)
+            private static void ClearBit(byte[] rawbits, uint index)
             {
                 if ((index & 1) == 0) // index % 2
                 {
@@ -67,15 +72,19 @@ namespace PrimeSieveCS
                     return;
                 }
                 index /= 2;
-                getrawbits(index / 8) &= (byte)~(1u << (int)(index % 8));
+                getrawbits(rawbits, index / 8) &= (byte)~(1u << (int)(index % 8));
             }
 
             // primeSieve
             // 
             // Calculate the primes up to the specified limit
 
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public void runSieve()
             {
+                var sieveSize = this.sieveSize;
+                var rawbits = this.rawbits;
+
                 int factor = 3;
                 int q = (int)Math.Sqrt(sieveSize);
 
@@ -83,7 +92,7 @@ namespace PrimeSieveCS
                 {
                     for (int num = factor; num < sieveSize; num++)
                     {
-                        if (GetBit((uint)num))
+                        if (GetBit(rawbits, (uint)num))
                         {
                             factor = num;
                             break;
@@ -94,7 +103,7 @@ namespace PrimeSieveCS
                     // We can then step by factor * 2 because every second one is going to be even by definition
 
                     for (int num = factor * 3; num < sieveSize; num += factor * 2)
-                        ClearBit((uint)num);
+                        ClearBit(rawbits, (uint)num);
 
                     factor += 2;
                 }
@@ -102,13 +111,16 @@ namespace PrimeSieveCS
 
             public void printResults(bool showResults, double duration, int passes)
             {
+                var sieveSize = this.sieveSize;
+                var rawbits = this.rawbits;
+
                 if (showResults)
                     Console.Write("2, ");
 
                 int count = 1;
                 for (int num = 3; num <= sieveSize; num++)
                 {
-                    if (GetBit((uint)num))
+                    if (GetBit(rawbits, (uint)num))
                     {
                         if (showResults)
                             Console.Write(num + ", ");
@@ -121,7 +133,8 @@ namespace PrimeSieveCS
                 Console.WriteLine($"Passes: {passes}, Time: {duration}, Avg: {duration / passes}, Limit: {sieveSize}, Count: {count}, Valid: {validateResults()}");
             }
 
-            private ref byte getrawbits(uint index)
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private static ref byte getrawbits(byte[] rawbits, uint index)
             {
                 return ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(rawbits), (nint)index);
             }
