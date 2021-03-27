@@ -33,7 +33,7 @@ namespace PrimeSieveCS
             public prime_sieve(int n)
             {
                 sieveSize = n;
-                rawbits = new byte[(n / 8) + 1];
+                rawbits = GC.AllocateUninitializedArray<byte>((n / 8) + 1, pinned: true);
                 rawbits.AsSpan().Fill(0xFF);
             }
 
