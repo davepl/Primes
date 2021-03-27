@@ -42,6 +42,11 @@ namespace PrimeSieveCS
                 var sieveSize = this.sieveSize;
                 var rawbits = this.rawbits;
 
+                if (rawbits is null)
+                {
+                    throw new ArgumentNullException();
+                }
+
                 uint count = 0;
                 for (uint i = 0; i < sieveSize; i++)
                     if (GetBit(rawbits, i))
@@ -92,6 +97,11 @@ namespace PrimeSieveCS
                 var sieveSize = this.sieveSize;
                 var rawbits = this.rawbits;
 
+                if (rawbits is null)
+                {
+                    throw new ArgumentNullException();
+                }
+
                 uint factor = 3;
                 uint q = (uint)Math.Sqrt(sieveSize);
 
@@ -120,6 +130,11 @@ namespace PrimeSieveCS
             {
                 var sieveSize = this.sieveSize;
                 var rawbits = this.rawbits;
+
+                if (rawbits is null)
+                {
+                    throw new ArgumentNullException();
+                }
 
                 if (showResults)
                     Console.Write("2, ");
