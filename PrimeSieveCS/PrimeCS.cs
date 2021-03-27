@@ -129,12 +129,14 @@ namespace PrimeSieveCS
 
         static void Main(string[] args)
         {
+            const long MillisecondsPerSecond = 1000;
+
             var passes = 0;
             prime_sieve sieve = null;
 
             var stopwatch = Stopwatch.StartNew();
 
-            while (stopwatch.ElapsedTicks < (10 * TimeSpan.TicksPerSecond))
+            while (stopwatch.ElapsedMilliseconds < (10 * MillisecondsPerSecond))
             {
                 sieve = new prime_sieve(1000000);
                 sieve.runSieve();
