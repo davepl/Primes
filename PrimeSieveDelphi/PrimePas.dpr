@@ -1,12 +1,20 @@
 program PrimePas;
 
+{
+	Passes: 8648, Time: 9.9999998 s, Avg: 1.1563 ms, Limit: 1000000, Count: 78498, Valid: Yes
+
+	Intel Core i5-9400 @ 2.90 GHz
+	32-bit
+
+	v1.1 - Removed use of generics dictionary and TimeSpan, but inlined GetBit/ClearBit.
+	v1.0 - Initial release
+}
+
 {$APPTYPE CONSOLE}
 
 uses
-	System.SysUtils,
+	SysUtils,
 	Classes,
-	System.Generics.Collections,
-	System.Timespan,
 	Math,
 	Windows;
 
@@ -15,11 +23,8 @@ type
 	private
 		FSieveSize: Integer;
 		FBitArray: array of ByteBool; //ByteBool: 4644. WordBool: 4232. LongBool: 3673
-		FMyDict: TDictionary<Integer, Integer>;
 
-		function GetBit(Index: Integer): Boolean;
-		procedure ClearBit(Index: Integer);
-		procedure InitializeBits;
+		function GetBit(Index: Integer): Boolean; inline;
 	public
 		constructor Create(Size: Integer);
 		destructor Destroy; override;
@@ -29,7 +34,7 @@ type
 		function CountPrimes: Integer;
 		function ValidateResults: Boolean;
 
-		procedure PrintResults(ShowResults: Boolean; Duration: Double; Passes: Integer);
+		function GetResults(ShowResults: Boolean; Duration: Double; Passes: Integer): string;
 	end;
 
 { TPrimeSieve }
@@ -45,26 +50,11 @@ begin
 	// and FBitArray[4] is if 5 is prime
 	//GetBit and SetBit do the work of "div 2"
 	SetLength(FBitArray, (FSieveSize+1) div 2);
-	InitializeBits;
-
-	FMyDict := TDictionary<Integer, Integer>.Create;
-
-	// Historical data for validating our results - the number of primes
-	// to be found under some limit, such as 168 primes under 1000
-	FMyDict.Add(       10, 4); //nobody noticed that 1 is wrong? [2, 3, 5, 7]
-	FMyDict.Add(      100, 25);
-	FMyDict.Add(     1000, 168);
-	FMyDict.Add(    10000, 1229);
-	FMyDict.Add(   100000, 9592);
-	FMyDict.Add(  1000000, 78498);
-	FMyDict.Add( 10000000, 664579);
-	FMyDict.Add(100000000, 5761455);
+	FillChar(FBitArray[0], Length(FBitArray), 1); //initialize bits
 end;
 
 destructor TPrimeSieve.Destroy;
 begin
-	FreeAndNil({var}FMyDict);
-
 	inherited;
 end;
 
@@ -84,78 +74,39 @@ begin
 end;
 
 function TPrimeSieve.ValidateResults: Boolean;
+var
+	expected: Integer;
 begin
-	if FMyDict.ContainsKey(FSieveSize) then
-		Result := FMyDict[FSieveSize] = Self.CountPrimes
+	// Historical data for validating our results - the number of primes
+	// to be found under some limit, such as 168 primes under 1000
+	case FSieveSize of
+	10: expected := 4; //nobody noticed that 1 is wrong? [2, 3, 5, 7]
+	100: expected := 25;
+	1000: expected := 168;
+	10000: expected := 1229;
+	100000: expected := 9592;
+	1000000: expected := 78498;
+	10000000: expected := 664579;
+	100000000: expected := 5761455;
 	else
 		Result := False;
+		Exit;
+	end;
+
+	Result := (Self.CountPrimes = expected);
 end;
 
 function TPrimeSieve.GetBit(Index: Integer): Boolean;
 begin
-	if (Index mod 2 = 0) then
+	if (Index and 1) = 0 then //7213
 	begin
 		Result := False;
 		Exit;
 	end;
 
-	Result := FBitArray[Index div 2];
+//	Result := FBitArray[Index div 2]
+	Result := FBitArray[Index shr 1];
 end;
-
-procedure TPrimeSieve.InitializeBits;
-var
-	i: Integer;
-	remaining: Integer;
-begin
-	remaining := Length(FBitArray);
-	i := 0;
-	while remaining >= 8 do
-	begin
-		FBitArray[i]   := True;
-		FBitArray[i+1] := True;
-		FBitArray[i+2] := True;
-		FBitArray[i+3] := True;
-		FBitArray[i+4] := True;
-		FBitArray[i+5] := True;
-		FBitArray[i+6] := True;
-		FBitArray[i+7] := True;
-		Inc(i, 8);
-		Dec(remaining, 8);
-	end;
-	while remaining > 0 do
-	begin
-		FBitArray[i] := True;
-		Inc(i);
-		Dec(remaining);
-	end;
-end;
-
-procedure TPrimeSieve.ClearBit(Index: Integer);
-begin
-{
-	Profiling shows 99% of the execution is spent here in ClearBit.
-
-	Testing index using and 1:        4387 passes
-	Testing index using mod 2:        4644 passes
-			WriteLine with inline text: 4644 passes
-			WriteLine with const  text: 4636 passes
-			No WriteLine:               4840 passes
-	Omit testing of index:            5280 passes
-
-	Which is surprising, as you'd think the branch predictor would realize this branch is **never** taken.
-}
-	if (Index mod 2) = 0 then
-	begin
-//		Writeln('You are setting even bits, which is sub-optimal');
-		Exit;
-	end;
-
-	//Any compiler worth its salt converts "div 2" into "shr 1".
-	//In this case Delphi is worth it's salt; emitting "sar".
-	//(But don't forget: Delphi still can't hoist loop variables)
-	FBitArray[Index div 2] := False;
-end;
-
 
 procedure TPrimeSieve.RunSieve;
 var
@@ -182,23 +133,25 @@ begin
 		num := factor*3;
 		while num <= FSieveSize do
 		begin
-			ClearBit(num);
-			Inc(num, factor*2);
+			FBitArray[num shr 1] := False; //num is (or at least better be) always odd
+			Inc(num, (factor shl 1)); //7714
 		end;
 
 		Inc(factor, 2);
 	end;
 end;
 
-procedure TPrimeSieve.PrintResults(ShowResults: Boolean; Duration: Double; Passes: Integer);
+function TPrimeSieve.GetResults(ShowResults: Boolean; Duration: Double; Passes: Integer): string;
 var
 	count: Integer;
 	num: Integer;
 const
 	SYesNo: array[Boolean] of string = ('No', 'Yes');
 begin
+	Result := '';
+
 	if ShowResults then
-		Write('2, ');
+		Result := Result+'2, ';
 
 	count := 1;
 	for num := 3 to FSieveSize do
@@ -206,16 +159,17 @@ begin
 		if GetBit(num) then
 		begin
 			if ShowResults then
-				Write(IntToStr(num) + ', ');
+				Result := Result + IntToStr(num) + ', ';
 			Inc(count);
 		end;
 	end;
 
 	if ShowResults then
-		WriteLn('');
+		Result := Result+#13#10;
 
-	WriteLn(Format('Passes: %d, Time: %.3f sec, Avg: %.4f ms, Limit: %d, Count: %d, Valid: %s',
-			[Passes, Duration, Duration/Passes*1000, FSieveSize, count, SYesNo[ValidateResults]]));
+	Result := Result+
+			Format('Passes: %d, Time: %.7f s, Avg: %.4f ms, Limit: %d, Count: %d, Valid: %s',
+					[Passes, Duration, Duration/Passes*1000, FSieveSize, count, SYesNo[ValidateResults]]);
 end;
 
 procedure Main;
@@ -223,13 +177,18 @@ var
 	sieve: TPrimeSieve;
 	dtStart: TDateTime;
 	passes: Integer;
-	tD: TTimeSpan;
+	dtEnd: TDateTime;
+	totalSeconds: Real;
+	sResults: string;
+const
+	TEN_SECONDS = 10.0/60/60/24;
 begin
-	dtStart := Now;
 	passes := 0;
-
 	sieve := nil;
-	while TTimeSpan.Subtract(Now, dtStart).TotalSeconds < 10 do
+
+	dtStart := Now;
+	dtEnd := dtStart + TEN_SECONDS;
+	while Now < dtEnd do
 	begin
 		if Assigned(sieve) then
 			sieve.Free;
@@ -239,17 +198,14 @@ begin
 		Inc(passes);
 	end;
 
-	tD := TTimeSpan.Subtract(Now, dtStart);
-	if Assigned(sieve) then
-		sieve.PrintResults(False, tD.TotalSeconds, passes);
+	totalSeconds := (Now-dtStart)*24*60*60;
+	if not Assigned(sieve) then
+		Exit;
+
+	sResults := sieve.GetResults(False, totalSeconds, passes);
+	WriteLn(sResults);
 end;
 
-{
-	Intel Core i5-9400 @ 2.90 GHz
-
-	- 32-bit: 4,809 passes
-	- 64-bit: 2,587 passes
-}
 begin
 	try
 		Main;
