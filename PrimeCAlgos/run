@@ -1,0 +1,57 @@
+#!/bin/bash
+# Compilation and execution on Git-Bash (GNU C Compiler)
+set -e
+
+OFLAGS="-Ofast -march=native -mtune=native -funroll-all-loops"
+SIZE=1000000
+
+while [[ $1 != "" ]]; do
+    case $1 in
+    --test)
+        # Use --test to cut measurement interval to 1 second (from 5 as is used
+        # in Dave's standard benchmark) and set some compile warnings.
+        SFLAGS="--secs 1"
+        TFLAGS="-Wall"
+        TEST=1
+        SIZE=10000000
+        ;;
+    
+    --debug)
+        OFLAGS="-ggdb"
+        DEBUG=1
+        ;;
+
+    *)
+        echo "Unknown flag: $1"
+        exit 1
+        ;;
+    esac
+
+    shift
+done
+
+gcc $TFLAGS $OFLAGS -pthread par-sieve.c -o par-sieve
+gcc $TFLAGS $OFLAGS sieve.c -o sieve
+
+if [[ $DEBUG ]]; then
+    gdb ./par-sieve
+    exit 0
+fi
+
+for info in "model name" "cpu MHz" "cache size"
+do
+    grep -m1 "$info" /proc/cpuinfo
+done
+echo
+echo Compiled with flags: $OFLAGS
+echo
+
+./sieve $SFLAGS --size 1000000
+./sieve $SFLAGS --size $SIZE
+echo
+
+./par-sieve $SFLAGS --threads 1 --size $SIZE
+for threads in {2..32}
+do
+    ./par-sieve $SFLAGS --threads $threads --size $SIZE | grep "per pass"
+done
