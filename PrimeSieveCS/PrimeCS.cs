@@ -5,6 +5,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace PrimeSieveCS
 {
@@ -23,10 +24,10 @@ namespace PrimeSieveCS
                 { 100000 , 9592 },
                 { 1000000 , 78498 },
                 { 10000000 , 664579 },
-                { 100000000 , 5761455 } 
+                { 100000000 , 5761455 },
             };
 
-            public prime_sieve(int size) 
+            public prime_sieve(int size)
             {
                 sieveSize = size;
                 bitArray = new BitArray((int)((this.sieveSize + 1) / 2), true);
@@ -62,17 +63,17 @@ namespace PrimeSieveCS
                     Console.WriteLine("You are setting even bits, which is sub-optimal");
                     return;
                 }
-                bitArray[index / 2] = false;      
+                bitArray[index / 2] = false;
             }
 
             // primeSieve
-            // 
+            //
             // Calculate the primes up to the specified limit
 
             public void runSieve()
             {
                 int factor = 3;
-                int q = (int) Math.Sqrt(this.sieveSize);
+                int q = (int)Math.Sqrt(this.sieveSize);
 
                 while (factor < q)
                 {
@@ -118,20 +119,19 @@ namespace PrimeSieveCS
 
         static void Main(string[] args)
         {
-            var tStart = DateTime.UtcNow;
+            var watch = Stopwatch.StartNew();
             var passes = 0;
             prime_sieve sieve = null;
 
-            while ((DateTime.UtcNow - tStart).TotalSeconds < 10)
+            while (watch.ElapsedMilliseconds < 5000)
             {
                 sieve = new prime_sieve(1000000);
                 sieve.runSieve();
                 passes++;
             }
 
-            var tD = DateTime.UtcNow - tStart;
             if (sieve != null)
-                sieve.printResults(false, tD.TotalSeconds, passes);
+                sieve.printResults(false, watch.ElapsedMilliseconds / 1000.0, passes);
         }
     }
 }
