@@ -2,20 +2,20 @@ const std = @import("std");
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
-/// Prime number sieve.
-pub fn Sieve(comptime NumType: type) type {
+/// A prime number field that is backed by comptime configurable type ArrayList.
+/// This enables use of any type you like, just specify the values that
+/// will stand in for true and false.
+pub fn ArrayListField(comptime Type: type, comptime trueVal: Type) type {
     return struct {
-        sieveSize: usize,
-        bits: ArrayList(u8),
+        bits: ArrayList(Type),
 
         const Self = @This();
 
         pub fn init(allocator: *Allocator, size: usize) !Self {
             var self = Self{
-                .sieveSize = size,
-                .bits = try ArrayList(u8).initCapacity(allocator, size),
+                .bits = try ArrayList(Type).initCapacity(allocator, size),
             };
-            try self.bits.appendNTimes(0, size);
+            try self.bits.appendNTimes(trueVal, size);
             return self;
         }
 
@@ -23,14 +23,40 @@ pub fn Sieve(comptime NumType: type) type {
             self.bits.deinit();
         }
 
+        pub fn slice(self: *Self) []Type {
+            return self.bits.items;
+        }
+    };
+}
+
+/// Prime number sieve. Can be configured with any desired time
+/// at compile time. So that switching between them would be easy.
+pub fn Sieve(
+    comptime Type: type,
+    comptime trueVal: Type,
+    comptime falseVal: Type,
+) type {
+    return struct {
+        sieveSize: usize,
+        field: []Type,
+
+        const Self = @This();
+
+        pub fn init(field: []Type, size: usize) Self {
+            return .{
+                .sieveSize = size,
+                .field = field,
+            };
+        }
+
         pub fn run(self: *Self) void {
-            var factor: NumType = 3;
-            const q = @floatToInt(NumType, @sqrt(@intToFloat(f64, self.sieveSize)));
+            var factor: usize = 3;
+            const q = @floatToInt(usize, @sqrt(@intToFloat(f64, self.sieveSize)));
 
             while (factor <= q) : (factor += 2) {
-                var num: NumType = factor;
+                var num: usize = factor;
                 factorSet: while (num < self.sieveSize) : (num += 2) {
-                    if (self.bits.items[num] == 0) {
+                    if (self.field[num] == trueVal) {
                         factor = num;
                         break :factorSet;
                     }
@@ -38,17 +64,17 @@ pub fn Sieve(comptime NumType: type) type {
 
                 num = factor * factor;
                 while (num < self.sieveSize) : (num += factor * 2) {
-                    self.bits.items[num] = 1;
+                    self.field[num] = falseVal;
                 }
             }
         }
 
-        pub fn primeCount(self: *Self) NumType {
-            var count: NumType = 1;
-            var idx: NumType = 3;
+        pub fn primeCount(self: *Self) usize {
+            var count: usize = 1;
+            var idx: usize = 3;
 
             while (idx < self.sieveSize) : (idx += 2) {
-                count += if (self.bits.items[idx] == 0) @as(NumType, 1) else @as(NumType, 0);
+                count += if (self.field[idx] == trueVal) @as(usize, 1) else @as(usize, 0);
             }
 
             return count;
@@ -60,92 +86,111 @@ const expectEqual = std.testing.expectEqual;
 const test_allocator = std.testing.allocator;
 
 test "count primes up to 10" {
-    var sieve = try Sieve(u32).init(test_allocator, 10);
-    defer sieve.deinit();
+    const size = 10;
+    var field = try ArrayListField(bool, true).init(test_allocator, size);
+    defer field.deinit();
 
+    var sieve = Sieve(bool, true, false).init(field.slice(), size);
     sieve.run();
 
-    expectEqual(@as(u32, 4), sieve.primeCount());
+    expectEqual(@as(usize, 4), sieve.primeCount());
 }
 
 test "count primes up to 100" {
-    var sieve = try Sieve(u32).init(test_allocator, 100);
-    defer sieve.deinit();
+    const size = 100;
+    var field = try ArrayListField(bool, true).init(test_allocator, size);
+    defer field.deinit();
 
+    var sieve = Sieve(bool, true, false).init(field.slice(), size);
     sieve.run();
 
-    expectEqual(@as(u32, 25), sieve.primeCount());
+    expectEqual(@as(usize, 25), sieve.primeCount());
 }
 
 test "count primes up to 1000" {
-    var sieve = try Sieve(u32).init(test_allocator, 1_000);
-    defer sieve.deinit();
+    const size = 1_000;
+    var field = try ArrayListField(bool, true).init(test_allocator, size);
+    defer field.deinit();
 
+    var sieve = Sieve(bool, true, false).init(field.slice(), size);
     sieve.run();
 
-    expectEqual(@as(u32, 168), sieve.primeCount());
+    expectEqual(@as(usize, 168), sieve.primeCount());
 }
 
 test "count primes up to 10000" {
-    var sieve = try Sieve(u32).init(test_allocator, 10_000);
-    defer sieve.deinit();
+    const size = 10_000;
+    var field = try ArrayListField(bool, true).init(test_allocator, size);
+    defer field.deinit();
 
+    var sieve = Sieve(bool, true, false).init(field.slice(), size);
     sieve.run();
 
-    expectEqual(@as(u32, 1_229), sieve.primeCount());
+    expectEqual(@as(usize, 1_229), sieve.primeCount());
 }
 
 test "count primes up to 100000" {
-    var sieve = try Sieve(u32).init(test_allocator, 100_000);
-    defer sieve.deinit();
+    const size = 100_000;
+    var field = try ArrayListField(bool, true).init(test_allocator, size);
+    defer field.deinit();
 
+    var sieve = Sieve(bool, true, false).init(field.slice(), size);
     sieve.run();
 
-    expectEqual(@as(u32, 9_592), sieve.primeCount());
+    expectEqual(@as(usize, 9_592), sieve.primeCount());
 }
 
 test "count primes up to 1000000" {
-    var sieve = try Sieve(u32).init(test_allocator, 1_000_000);
-    defer sieve.deinit();
+    const size = 1_000_000;
+    var field = try ArrayListField(bool, true).init(test_allocator, size);
+    defer field.deinit();
 
+    var sieve = Sieve(bool, true, false).init(field.slice(), size);
     sieve.run();
 
-    expectEqual(@as(u32, 78_498), sieve.primeCount());
+    expectEqual(@as(usize, 78_498), sieve.primeCount());
 }
 
 test "count primes up to 10000000" {
-    var sieve = try Sieve(u32).init(test_allocator, 10_000_000);
-    defer sieve.deinit();
+    const size = 10_000_000;
+    var field = try ArrayListField(bool, true).init(test_allocator, size);
+    defer field.deinit();
 
+    var sieve = Sieve(bool, true, false).init(field.slice(), size);
     sieve.run();
 
-    expectEqual(@as(u32, 664_579), sieve.primeCount());
+    expectEqual(@as(usize, 664_579), sieve.primeCount());
 }
 
 test "count primes up to 100000000" {
-    var sieve = try Sieve(u32).init(test_allocator, 100_000_000);
-    defer sieve.deinit();
+    const size = 100_000_000;
+    var field = try ArrayListField(bool, true).init(test_allocator, size);
+    defer field.deinit();
 
+    var sieve = Sieve(bool, true, false).init(field.slice(), size);
     sieve.run();
 
-    expectEqual(@as(u32, 5_761_455), sieve.primeCount());
+    expectEqual(@as(usize, 5_761_455), sieve.primeCount());
 }
 
 test "count primes up to 1000000000" {
-    var sieve = try Sieve(u32).init(test_allocator, 1_000_000_000);
-    defer sieve.deinit();
+    const size = 1_000_000_000;
+    var field = try ArrayListField(bool, true).init(test_allocator, size);
+    defer field.deinit();
 
+    var sieve = Sieve(bool, true, false).init(field.slice(), size);
     sieve.run();
 
-    expectEqual(@as(u32, 50_847_534), sieve.primeCount());
+    expectEqual(@as(usize, 50_847_534), sieve.primeCount());
 }
 
-// Integer overflows. Too lazy to fix :)
-// test "count primes up to 10000000000" {
-//     var sieve = try Sieve(u32).init(test_allocator, 10_000_000_000);
-//     defer sieve.deinit();
-//
-//     sieve.run();
-//
-//     expectEqual(@as(u32, 455_052_511), sieve.primeCount());
-// }
+test "count primes up to 10000000000" {
+    const size = 10_000_000_000;
+    var field = try ArrayListField(bool, true).init(test_allocator, size);
+    defer field.deinit();
+
+    var sieve = Sieve(bool, true, false).init(field.slice(), size);
+    sieve.run();
+
+    expectEqual(@as(usize, 455_052_511), sieve.primeCount());
+}
