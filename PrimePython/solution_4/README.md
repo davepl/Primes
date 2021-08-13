@@ -9,7 +9,7 @@ This is an unfaithful solution due to the inclusion of numpy and numba. Copied f
 
 # Results on my machine
 
- - Intel i7-10759H
+ - Intel i7-10759H, Windows 11
  - Python: 3.8.8 64 bit
 
 
