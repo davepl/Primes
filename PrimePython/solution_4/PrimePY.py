@@ -71,7 +71,7 @@ def run():
         run_sieve(size)
         passes += 1
     iEnd: float = time.time() - iStart
-    print_results(iEnd, passes, size)  # Passes: 6917951, Time: 5.00100302696228, Avg: 7.229023488258706e-07
+    print_results(iEnd, passes, size)
 
 
 if __name__ == "__main__":
