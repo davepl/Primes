@@ -4,7 +4,7 @@ Python Prime Sieve using Numpy
 Based on MyFirstPython Program (tm) Dave Plummer 8/9/2018
 Adapted by Emil Sauer Lynge 08/07/2021
 
-This particular version is based on the PrimePython/solution2, whic itself is adapted from Dave Plummer original.
+This particular version is based on the PrimePython/solution2, which itself is adapted from Dave Plummer original.
 """
 import numpy as np
 from math import sqrt
@@ -17,7 +17,7 @@ class PrimeSieve:
     print_results will dump the count to check validity."""
 
     prime_counts = { 10 : 4,                 # Historical data for validating our results - the number of primes
-                     100 : 25,                # to be found under some limit, such as 168 primes under 1000
+                     100 : 25,               # to be found under some limit, such as 168 primes under 1000
                      1000 : 168,
                      10000 : 1229,
                      100_000 : 9592,
